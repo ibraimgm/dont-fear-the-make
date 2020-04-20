@@ -1,5 +1,8 @@
 .vscode
 
+rules.mk
+dist/
+build/
 /dont-fear-the-make
 /hello
 /addOne

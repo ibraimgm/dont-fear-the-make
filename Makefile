@@ -10,8 +10,6 @@ OS=$(shell $(GOENV) | grep GOOS | sed -E 's/GOOS="(.*)"/\1/')
 
 # source files
 SOURCES=go.mod $(shell find . -path ./cmd -prune -o -name "*.go" -print)
-HELLO_SOURCES=$(shell find ./cmd/hello -name "*.go")
-ADDONE_SOURCES=$(shell find ./cmd/addOne -name "*.go")
 
 # platforms and targets
 TARGETS=hello addOne
@@ -24,46 +22,43 @@ all: build
 
 dist: $(DIST_TARGETS)
 
-build: hello addOne
+build: $(TARGETS)
 
-hello: build/$(OS)-$(ARCH)/hello
-	cp $< $@
+# general build rule
+define BUILD_RULE
+$(TARGET)_SOURCES=$$(shell find ./cmd/$(TARGET) -name "*.go")
 
-build/linux-amd64/hello: $(HELLO_SOURCES) $(SOURCES)
-	env GOARCH=amd64 GOOS=linux $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/hello
+$(TARGET): build/$$(OS)-$$(ARCH)/$(TARGET)
+	cp $$< $$@
 
-build/darwin-amd64/hello: $(HELLO_SOURCES) $(SOURCES)
-	env GOARCH=amd64 GOOS=darwin $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/hello
+build/linux-amd64/$(TARGET): $$($(TARGET)_SOURCES) $$(SOURCES)
+	env GOARCH=amd64 GOOS=linux $$(GOBUILD) $$(FLAGS) $$(LDFLAGS) -o $$@ ./cmd/$(TARGET)
 
-build/linux-arm7/hello: $(HELLO_SOURCES) $(SOURCES)
-	env GOARM=7 GOARCH=arm GOOS=linux $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/hello
+build/darwin-amd64/$(TARGET): $$($(TARGET)_SOURCES) $$(SOURCES)
+	env GOARCH=amd64 GOOS=darwin $$(GOBUILD) $$(FLAGS) $$(LDFLAGS) -o $$@ ./cmd/$(TARGET)
 
-addOne: build/$(OS)-$(ARCH)/addOne
-	cp $< $@
+build/linux-arm7/$(TARGET): $$($(TARGET)_SOURCES) $$(SOURCES)
+	env GOARM=7 GOARCH=arm GOOS=linux $$(GOBUILD) $$(FLAGS) $$(LDFLAGS) -o $$@ ./cmd/$(TARGET)
 
-build/linux-amd64/addOne: $(ADDONE_SOURCES) $(SOURCES)
-	env GOARCH=amd64 GOOS=linux $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/addOne
+endef
 
-build/darwin-amd64/addOne: $(ADDONE_SOURCES) $(SOURCES)
-	env GOARCH=amd64 GOOS=darwin $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/addOne
-
-build/linux-arm7/addOne: $(ADDONE_SOURCES) $(SOURCES)
-	env GOARM=7 GOARCH=arm GOOS=linux $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/addOne
-
-dist/linux-amd64.tar.gz: $(addprefix build/linux-amd64/,$(TARGETS))
+# rule for dist targets
+define DIST_RULE
+dist/$(PLATFORM).tar.gz: $$(addprefix build/$(PLATFORM)/,$$(TARGETS))
 	mkdir -p dist
-	tar -czf $@ -C build/linux-amd64 .
+	tar -czf $$@ -C build/$(PLATFORM) .
 
-dist/darwin-amd64.tar.gz: $(addprefix build/darwin-amd64/,$(TARGETS))
-	mkdir -p dist
-	tar -czf $@ -C build/darwin-amd64 .
+endef
 
-dist/linux-arm7.tar.gz: $(addprefix build/linux-arm7/,$(TARGETS))
-	mkdir -p dist
-	tar -czf $@ -C build/linux-arm7 .
+rules.mk: Makefile
+	$(file > $@,)
+	$(foreach TARGET,$(TARGETS),$(file >> $@,$(BUILD_RULE)))
+	$(foreach PLATFORM,$(PLATFORMS),$(file >> $@,$(DIST_RULE)))
+
+include rules.mk
 
 clean:
-	rm -rf $(PLATFORM_TARGETS)
-	rm -rf dist
+	rm -rf $(TARGETS) $(PLATFORM_TARGETS)
+	rm -rf dist build
 
 .PHONY: all dist build clean

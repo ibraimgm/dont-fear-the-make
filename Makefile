@@ -16,38 +16,54 @@ ADDONE_SOURCES=$(shell find ./cmd/addOne -name "*.go")
 # platforms and targets
 TARGETS=hello addOne
 PLATFORMS=linux-amd64 darwin-amd64 linux-arm7
-PLATFORM_TARGETS=$(foreach p,$(PLATFORMS),$(addsuffix .$(p),$(TARGETS)))
+PLATFORM_TARGETS=$(foreach p,$(PLATFORMS),$(addprefix build/$(p)/,$(TARGETS)))
+DIST_TARGETS=$(addsuffix .tar.gz,$(addprefix dist/,$(PLATFORMS)))
 
 
 all: build
 
+dist: $(DIST_TARGETS)
+
 build: hello addOne
 
-hello: hello.$(OS)-$(ARCH)
+hello: build/$(OS)-$(ARCH)/hello
 	cp $< $@
 
-hello.linux-amd64: $(HELLO_SOURCES) $(SOURCES)
+build/linux-amd64/hello: $(HELLO_SOURCES) $(SOURCES)
 	env GOARCH=amd64 GOOS=linux $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/hello
 
-hello.darwin-amd64: $(HELLO_SOURCES) $(SOURCES)
+build/darwin-amd64/hello: $(HELLO_SOURCES) $(SOURCES)
 	env GOARCH=amd64 GOOS=darwin $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/hello
 
-hello.linux-arm7: $(HELLO_SOURCES) $(SOURCES)
+build/linux-arm7/hello: $(HELLO_SOURCES) $(SOURCES)
 	env GOARM=7 GOARCH=arm GOOS=linux $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/hello
 
-addOne: addOne.$(OS)-$(ARCH)
+addOne: build/$(OS)-$(ARCH)/addOne
 	cp $< $@
 
-addOne.linux-amd64: $(ADDONE_SOURCES) $(SOURCES)
+build/linux-amd64/addOne: $(ADDONE_SOURCES) $(SOURCES)
 	env GOARCH=amd64 GOOS=linux $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/addOne
 
-addOne.darwin-amd64: $(ADDONE_SOURCES) $(SOURCES)
+build/darwin-amd64/addOne: $(ADDONE_SOURCES) $(SOURCES)
 	env GOARCH=amd64 GOOS=darwin $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/addOne
 
-addOne.linux-arm7: $(ADDONE_SOURCES) $(SOURCES)
+build/linux-arm7/addOne: $(ADDONE_SOURCES) $(SOURCES)
 	env GOARM=7 GOARCH=arm GOOS=linux $(GOBUILD) $(FLAGS) $(LDFLAGS) -o $@ ./cmd/addOne
+
+dist/linux-amd64.tar.gz: $(addprefix build/linux-amd64/,$(TARGETS))
+	mkdir -p dist
+	tar -czf $@ -C build/linux-amd64 .
+
+dist/darwin-amd64.tar.gz: $(addprefix build/darwin-amd64/,$(TARGETS))
+	mkdir -p dist
+	tar -czf $@ -C build/darwin-amd64 .
+
+dist/linux-arm7.tar.gz: $(addprefix build/linux-arm7/,$(TARGETS))
+	mkdir -p dist
+	tar -czf $@ -C build/linux-arm7 .
 
 clean:
 	rm -rf $(PLATFORM_TARGETS)
+	rm -rf dist
 
-.PHONY: all build clean
+.PHONY: all dist build clean
